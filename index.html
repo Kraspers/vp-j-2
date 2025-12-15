@@ -609,6 +609,11 @@
             --dark-bg: #0f2640;
         }
 
+        body.new-year-theme .footer {
+            position: relative;
+            z-index: 10;
+        }
+
         /* Snow animation */
         .snowflakes {
             position: fixed;
@@ -635,6 +640,29 @@
             to {
                 transform: translateY(100vh) translateX(100px);
                 opacity: 0;
+            }
+        }
+
+        /* Placeholder для визуализации рекламного блока в разработке */
+        #yandex_rtb_R-A-18053864-1 {
+            background-color: var(--dark-bg);
+            border: 2px dashed var(--border-color);
+            border-radius: 4px;
+            padding: 20px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 12px;
+            min-height: 250px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        /* Hide ad banner on mobile when viewing article */
+        @media (max-width: 768px) {
+            body.viewing-article #yandex_rtb_R-A-18053864-1 {
+                display: none !important;
             }
         }
 
@@ -869,6 +897,9 @@
             }
         }
     </style>
+    <!-- Yandex.RTB -->
+    <script>window.yaContextCb=window.yaContextCb||[]</script>
+    <script src="https://yandex.ru/ads/system/context.js" async></script>
 </head>
 <body>
     <div id="snowflakes" class="snowflakes" style="z-index: 0;"></div>
@@ -908,6 +939,16 @@
                         <div id="popular-articles-list" class="popular-list">
                             </div>
                     </div>
+                    <!-- Yandex.RTB R-A-18053864-1 -->
+                    <div id="yandex_rtb_R-A-18053864-1"></div>
+                    <script>
+                    window.yaContextCb.push(() => {
+                        Ya.Context.AdvManager.render({
+                            "blockId": "R-A-18053864-1",
+                            "renderTo": "yandex_rtb_R-A-18053864-1"
+                        })
+                    })
+                    </script>
                 </aside>
             </main>
         </div>
@@ -1279,6 +1320,7 @@
         // --- 3. Логика отображения ленты и статей ---
 
         function renderFeed(filteredPosts = getPosts()) {
+            document.body.classList.remove('viewing-article');
             if (searchInput.value.trim() === '') {
                  if (!window.location.hash.startsWith('#page/')) {
                     history.pushState(null, null, 'index.html');
@@ -1381,6 +1423,7 @@
         }
 
         function renderArticle(postId) {
+            document.body.classList.add('viewing-article');
             const posts = getPosts();
             const post = posts.find(p => p.id == postId);
 
