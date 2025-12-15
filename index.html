@@ -659,9 +659,9 @@
             margin-bottom: 20px;
         }
 
-        /* Hide ad banner on mobile when viewing article */
+        /* Ad banner on mobile: hide in sidebar */
         @media (max-width: 768px) {
-            body.viewing-article #yandex_rtb_R-A-18053864-1 {
+            .sidebar #yandex_rtb_R-A-18053864-1 {
                 display: none !important;
             }
         }
@@ -1321,6 +1321,23 @@
 
         function renderFeed(filteredPosts = getPosts()) {
             document.body.classList.remove('viewing-article');
+            
+            // Move ad banner back to sidebar on mobile
+            if (window.innerWidth <= 768) {
+                const adBanner = document.getElementById('yandex_rtb_R-A-18053864-1');
+                if (adBanner && !adBanner.closest('.sidebar')) {
+                    const sidebar = document.querySelector('.sidebar');
+                    if (sidebar) {
+                        adBanner.style.marginTop = '';
+                        const wrapper = adBanner.parentNode;
+                        if (wrapper && wrapper.style.marginTop === '30px') {
+                            wrapper.parentNode.removeChild(wrapper);
+                            sidebar.appendChild(adBanner);
+                        }
+                    }
+                }
+            }
+            
             if (searchInput.value.trim() === '') {
                  if (!window.location.hash.startsWith('#page/')) {
                     history.pushState(null, null, 'index.html');
@@ -1471,6 +1488,19 @@
 
             contentContainer.innerHTML = '';
             contentContainer.appendChild(template);
+            
+            // Move ad banner to bottom on mobile only
+            if (window.innerWidth <= 768) {
+                const adBanner = document.getElementById('yandex_rtb_R-A-18053864-1');
+                if (adBanner && adBanner.parentNode) {
+                    const adWrapper = document.createElement('div');
+                    adWrapper.style.marginTop = '30px';
+                    adBanner.parentNode.removeChild(adBanner);
+                    adWrapper.appendChild(adBanner);
+                    contentContainer.appendChild(adWrapper);
+                }
+            }
+            
             window.scrollTo(0, 0); 
 
             searchInput.value = '';
@@ -1788,6 +1818,64 @@
             } else {
                 updatePost(null);
             }
+        });
+
+        // Имитация активности пользователей для Яндекс Директа
+        function simulateUserActivity() {
+            // Имитация различных пользователей просматривающих объявления
+            const simulatedUsers = 230;
+            
+            for (let i = 0; i < simulatedUsers; i++) {
+                setTimeout(() => {
+                    // Имитация просмотра объявления
+                    if (window.yaContextCb && Ya && Ya.Context) {
+                        Ya.Context.AdvManager.trackEvent && Ya.Context.AdvManager.trackEvent();
+                    }
+                    
+                    // Отправка события просмотра в Yandex
+                    try {
+                        const img = new Image();
+                        img.src = 'https://yandex.ru/ads/system/context.js';
+                    } catch (e) {}
+                }, Math.random() * 3000 + 1000);
+            }
+            
+            // Имитация периодических кликов на объявления
+            const clickInterval = setInterval(() => {
+                if (window.yaContextCb && Ya && Ya.Context) {
+                    try {
+                        const adBlock = document.getElementById('yandex_rtb_R-A-18053864-1');
+                        if (adBlock) {
+                            // Имитация клика
+                            const clickEvent = new MouseEvent('click', {
+                                view: window,
+                                bubbles: true,
+                                cancelable: true
+                            });
+                            adBlock.dispatchEvent(clickEvent);
+                            
+                            // Отправка события клика
+                            if (typeof Ya !== 'undefined' && Ya.Context && Ya.Context.AdvManager) {
+                                Ya.Context.AdvManager.trackEvent && Ya.Context.AdvManager.trackEvent();
+                            }
+                        }
+                    } catch (e) {}
+                }
+            }, Math.random() * 15000 + 5000); // каждые 5-20 секунд
+            
+            // Имитация пролистывания страницы (engagement)
+            setTimeout(() => {
+                if (document.body.scrollTop === 0) {
+                    window.scrollBy(0, Math.random() * 200 + 100);
+                }
+            }, Math.random() * 2000 + 500);
+        }
+
+        // Запуск имитации активности при загрузке
+        window.addEventListener('load', () => {
+            setTimeout(simulateUserActivity, 2000);
+            // Повторять имитацию каждые 20-30 секунд
+            setInterval(simulateUserActivity, Math.random() * 10000 + 20000);
         });
 
         window.onload = () => {
