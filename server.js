@@ -168,54 +168,32 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 5000;
+const PUBLIC_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
 
 function createKeepAliveBot() {
-  const { io: ClientIO } = require('socket.io-client');
-  const botSocket = ClientIO(`http://localhost:${PORT}`, {
-    query: { bot: 'true' },
-    reconnection: true,
-    reconnectionDelay: 5000
-  });
-  
-  botSocket.on('connect', () => {
-    console.log('Keep-alive bot connected');
-  });
-  
+  const https = require('https');
   const http = require('http');
   
   setInterval(() => {
-    if (botSocket.connected) {
-      botSocket.emit('ping');
+    const data = readData();
+    if (data.posts && data.posts.length > 0) {
+      const randomPost = data.posts[Math.floor(Math.random() * data.posts.length)];
+      const url = `${PUBLIC_URL}/api/posts/${randomPost.id}/view?bot=true`;
       
-      const data = readData();
-      if (data.posts && data.posts.length > 0) {
-        const randomPost = data.posts[Math.floor(Math.random() * data.posts.length)];
-        const options = {
-          hostname: 'localhost',
-          port: PORT,
-          path: `/api/posts/${randomPost.id}/view?bot=true`,
-          method: 'POST'
-        };
-        
-        const req = http.request(options, (res) => {
-          res.on('data', () => {});
-        });
-        req.on('error', () => {});
-        req.end();
-      }
+      const protocol = url.startsWith('https') ? https : http;
+      const req = protocol.get(url, (res) => {
+        res.on('data', () => {});
+      });
+      req.on('error', () => {});
     }
-  }, 30000);
-  
-  return botSocket;
+  }, 20000);
 }
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
   
   setTimeout(() => {
-    for (let i = 0; i < 3; i++) {
-      createKeepAliveBot();
-    }
-    console.log('Keep-alive bots started');
-  }, 2000);
+    createKeepAliveBot();
+    console.log('Keep-alive bot started');
+  }, 1000);
 });
