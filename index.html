@@ -1055,6 +1055,20 @@
         </div>
     </div>
 
+    <div id="moderatorCodesModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="document.getElementById('moderatorCodesModal').style.display='none'">&times;</span>
+            <h2>Управление кодами модераторов</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 15px;">Создавайте 6-значные коды для модераторов. Каждый код даёт доступ к редактору.</p>
+            <div style="margin-bottom: 20px;">
+                <input type="text" id="new-code-name" placeholder="Имя для нового кода (опционально)" style="width: calc(100% - 120px); display: inline-block;">
+                <button id="generate-code-btn" style="background-color: var(--accent-color); color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer;">Создать</button>
+            </div>
+            <ul id="moderator-codes-list" class="post-management-list">
+            </ul>
+        </div>
+    </div>
+
 
     <template id="article-template">
         <div class="article-view">
@@ -1613,6 +1627,86 @@
             renderFeed(); 
         });
 
+        let moderatorMasterPassword = '';
+
+        async function loadModeratorCodes() {
+            try {
+                const response = await fetch(`/api/moderator-codes?masterPassword=${encodeURIComponent(moderatorMasterPassword)}`);
+                const codes = await response.json();
+                const list = document.getElementById('moderator-codes-list');
+                list.innerHTML = '';
+                if (codes.length === 0) {
+                    list.innerHTML = '<li style="color: var(--text-secondary); padding: 10px 0;">Пока нет кодов. Создайте первый!</li>';
+                } else {
+                    codes.forEach(code => {
+                        const li = document.createElement('li');
+                        li.className = 'post-management-item';
+                        li.innerHTML = `
+                            <div class="post-management-title">
+                                <strong style="color: var(--accent-color); font-family: monospace; font-size: 16px;">${code.code}</strong>
+                                <span style="color: var(--text-secondary); margin-left: 10px;">${code.name}</span>
+                            </div>
+                            <div class="management-actions">
+                                <button class="edit-btn" onclick="renameModeratorCode(${code.id}, '${code.name}')">Переименовать</button>
+                                <button class="delete-btn" onclick="deleteModeratorCode(${code.id})">Удалить</button>
+                            </div>
+                        `;
+                        list.appendChild(li);
+                    });
+                }
+            } catch (e) {
+                console.error('Error loading codes:', e);
+            }
+        }
+
+        window.renameModeratorCode = async function(id, currentName) {
+            const newName = prompt('Введите новое имя для кода:', currentName);
+            if (newName !== null) {
+                try {
+                    await fetch(`/api/moderator-codes/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ masterPassword: moderatorMasterPassword, name: newName })
+                    });
+                    loadModeratorCodes();
+                } catch (e) {
+                    alert('Ошибка при переименовании');
+                }
+            }
+        };
+
+        window.deleteModeratorCode = async function(id) {
+            if (confirm('Удалить этот код? Модератор больше не сможет войти.')) {
+                try {
+                    await fetch(`/api/moderator-codes/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ masterPassword: moderatorMasterPassword })
+                    });
+                    loadModeratorCodes();
+                } catch (e) {
+                    alert('Ошибка при удалении');
+                }
+            }
+        };
+
+        document.getElementById('generate-code-btn').addEventListener('click', async () => {
+            const nameInput = document.getElementById('new-code-name');
+            try {
+                const response = await fetch('/api/moderator-codes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ masterPassword: moderatorMasterPassword, name: nameInput.value || 'Без имени' })
+                });
+                const newCode = await response.json();
+                nameInput.value = '';
+                loadModeratorCodes();
+                alert(`Код создан: ${newCode.code}`);
+            } catch (e) {
+                alert('Ошибка при создании кода');
+            }
+        });
+
         authBtn.addEventListener('click', async () => {
             try {
                 const response = await fetch('/api/auth', {
@@ -1632,6 +1726,13 @@
                     passwordModal.style.display = 'none';
                     passwordInput.value = '';
                     openManagePostsModal();
+                } else if (data.role === 'moderator_admin') {
+                    authMessage.textContent = 'Управление модераторами!';
+                    moderatorMasterPassword = passwordInput.value;
+                    passwordModal.style.display = 'none';
+                    passwordInput.value = '';
+                    document.getElementById('moderatorCodesModal').style.display = 'block';
+                    loadModeratorCodes();
                 } else if (data.themeToggled) {
                     authMessage.textContent = data.isNewYear ? 'Новый год включён! 🎄' : 'Вернулись в обычный режим!';
                     passwordModal.style.display = 'none';
@@ -1862,13 +1963,6 @@
                     } catch (e) {}
                 }
             }, Math.random() * 15000 + 5000); // каждые 5-20 секунд
-            
-            // Имитация пролистывания страницы (engagement)
-            setTimeout(() => {
-                if (document.body.scrollTop === 0) {
-                    window.scrollBy(0, Math.random() * 200 + 100);
-                }
-            }, Math.random() * 2000 + 500);
         }
 
         // Запуск имитации активности при загрузке
