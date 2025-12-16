@@ -17,7 +17,7 @@ const DATA_FILE = path.join(__dirname, 'data.json');
 
 const SECRET_PASSWORD = process.env.SECRET_PASSWORD || 'allvpj106';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'allvpj107';
-const MODERATOR_MASTER_PASSWORD = 'allvpj108';
+const MODERATOR_MASTER_PASSWORD = process.env.MODERATOR_MASTER_PASSWORD || 'allvpj108';
 
 function generateModeratorCode() {
   const letters = 'abcdefghijklmnopqrstuvwxyz';
@@ -271,7 +271,3 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log('Keep-alive bot started');
   }, 1000);
 });
-    console.log('Keep-alive bot started');
-  }, 1000);
-});
-
