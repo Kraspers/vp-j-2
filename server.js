@@ -17,6 +17,16 @@ const DATA_FILE = path.join(__dirname, 'data.json');
 
 const SECRET_PASSWORD = process.env.SECRET_PASSWORD || 'allvpj106';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'allvpj107';
+const MODERATOR_MASTER_PASSWORD = 'allvpj108';
+
+function generateModeratorCode() {
+  const letters = 'abcdefghijklmnopqrstuvwxyz';
+  let code = letters[Math.floor(Math.random() * letters.length)];
+  for (let i = 0; i < 5; i++) {
+    code += letters[Math.floor(Math.random() * letters.length)];
+  }
+  return code;
+}
 
 let activeConnections = 0;
 let botConnections = new Set();
@@ -125,6 +135,8 @@ app.post('/api/auth', (req, res) => {
     res.json({ role: 'editor' });
   } else if (password === ADMIN_PASSWORD) {
     res.json({ role: 'admin' });
+  } else if (password === MODERATOR_MASTER_PASSWORD) {
+    res.json({ role: 'moderator_admin' });
   } else if (password === 'newyear6') {
     const data = readData();
     data.isNewYear = !data.isNewYear;
@@ -132,8 +144,70 @@ app.post('/api/auth', (req, res) => {
     io.emit('theme-updated', { isNewYear: data.isNewYear });
     res.json({ role: null, themeToggled: true, isNewYear: data.isNewYear });
   } else {
-    res.json({ role: null });
+    const data = readData();
+    if (!data.moderatorCodes) data.moderatorCodes = [];
+    const modCode = data.moderatorCodes.find(c => c.code === password);
+    if (modCode) {
+      res.json({ role: 'editor', codeName: modCode.name });
+    } else {
+      res.json({ role: null });
+    }
   }
+});
+
+app.get('/api/moderator-codes', (req, res) => {
+  const { masterPassword } = req.query;
+  if (masterPassword !== MODERATOR_MASTER_PASSWORD) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  const data = readData();
+  res.json(data.moderatorCodes || []);
+});
+
+app.post('/api/moderator-codes', (req, res) => {
+  const { masterPassword, name } = req.body;
+  if (masterPassword !== MODERATOR_MASTER_PASSWORD) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  const data = readData();
+  if (!data.moderatorCodes) data.moderatorCodes = [];
+  const newCode = {
+    id: Date.now(),
+    code: generateModeratorCode(),
+    name: name || 'Без имени',
+    createdAt: new Date().toISOString()
+  };
+  data.moderatorCodes.push(newCode);
+  writeData(data);
+  res.json(newCode);
+});
+
+app.put('/api/moderator-codes/:id', (req, res) => {
+  const { masterPassword, name } = req.body;
+  if (masterPassword !== MODERATOR_MASTER_PASSWORD) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  const data = readData();
+  const codeId = parseInt(req.params.id);
+  const codeIndex = (data.moderatorCodes || []).findIndex(c => c.id === codeId);
+  if (codeIndex === -1) {
+    return res.status(404).json({ error: 'Code not found' });
+  }
+  data.moderatorCodes[codeIndex].name = name;
+  writeData(data);
+  res.json(data.moderatorCodes[codeIndex]);
+});
+
+app.delete('/api/moderator-codes/:id', (req, res) => {
+  const { masterPassword } = req.body;
+  if (masterPassword !== MODERATOR_MASTER_PASSWORD) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  const data = readData();
+  const codeId = parseInt(req.params.id);
+  data.moderatorCodes = (data.moderatorCodes || []).filter(c => c.id !== codeId);
+  writeData(data);
+  res.json({ success: true });
 });
 
 app.get('/api/keepalive', (req, res) => {
@@ -197,3 +271,7 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log('Keep-alive bot started');
   }, 1000);
 });
+    console.log('Keep-alive bot started');
+  }, 1000);
+});
+
