@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VPizde Journal</title>
+    <link rel="preload" as="image" href="assets/not_found.png">
     <style>
         /* CSS RESET */
         * {
@@ -72,6 +73,33 @@
             display: flex;
             justify-content: flex-end;
             align-items: center;
+        }
+
+
+        .section-toggle-btn {
+            width: 34px;
+            height: 34px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background-color: var(--dark-bg);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            cursor: pointer;
+            transition: border-color 0.2s, background-color 0.2s;
+            padding: 0;
+        }
+
+        .section-toggle-btn:hover {
+            border-color: var(--accent-color);
+            background-color: #2b2b2b;
+        }
+
+        .section-toggle-btn img {
+            width: 18px;
+            height: 18px;
+            object-fit: contain;
         }
 
         .search-container {
@@ -500,7 +528,8 @@
         .modal-content input[type="text"],
         .modal-content input[type="password"],
         .modal-content input[type="file"],
-        .modal-content textarea {
+        .modal-content textarea,
+        .modal-content select {
             width: 100%;
             padding: 10px;
             margin: 8px 0 15px 0;
@@ -831,7 +860,8 @@
             .modal-content input[type="text"],
             .modal-content input[type="password"],
             .modal-content input[type="file"],
-            .modal-content textarea {
+            .modal-content textarea,
+        .modal-content select {
                 font-size: 16px;
             }
 
@@ -921,6 +951,9 @@
             <nav class="header-nav">
             </nav>
             <div class="header-actions">
+                <button id="section-toggle-btn" class="section-toggle-btn" type="button" title="Перейти в VP" aria-label="Переключить раздел VP/VP-J">
+                    <img id="section-toggle-icon" src="assets/vp-anons.png" alt="VP">
+                </button>
                 <div class="search-container">
                     <img src="assets/search.png" class="search-icon" alt="Поиск">
                     <input type="text" id="search-input" placeholder="Поиск по статьям..." oninput="filterPosts()">
@@ -1003,6 +1036,12 @@
                 <label for="post-tags-input">Теги (через запятую)</label>
                 <input type="text" id="post-tags-input" placeholder="мат, юмор, программирование">
 
+                <label for="post-section-input">Раздел публикации</label>
+                <select id="post-section-input">
+                    <option value="vpj">VP-J</option>
+                    <option value="vp">VP</option>
+                </select>
+
                 <div class="checkbox-group">
                     <input type="checkbox" id="post-popular-input">
                     <label for="post-popular-input" style="margin-top: 0; display: inline;">Добавить в 🔥 Популярное за 24 часа</label>
@@ -1035,6 +1074,12 @@
 
                 <label for="edit-post-tags-input">Теги (через запятую)</label>
                 <input type="text" id="edit-post-tags-input" placeholder="мат, юмор, программирование">
+
+                <label for="edit-post-section-input">Раздел публикации</label>
+                <select id="edit-post-section-input">
+                    <option value="vpj">VP-J</option>
+                    <option value="vp">VP</option>
+                </select>
 
                 <div class="checkbox-group">
                     <input type="checkbox" id="edit-post-popular-input">
@@ -1162,6 +1207,8 @@
         const postForm = document.getElementById('post-form');
         const postAuthorInput = document.getElementById('post-author-input');
         const searchInput = document.getElementById('search-input'); 
+        const sectionToggleBtn = document.getElementById('section-toggle-btn');
+        const sectionToggleIcon = document.getElementById('section-toggle-icon');
 
         const managePostsModal = document.getElementById('managePostsModal');
         const postManagementList = document.getElementById('post-management-list');
@@ -1169,6 +1216,7 @@
         const editPostForm = document.getElementById('edit-post-form');
 
         let allPosts = [];
+        let currentSection = 'vpj';
         const socket = io();
         const visitorId = localStorage.getItem('visitorId') || (() => {
             const id = 'v_' + Math.random().toString(36).substr(2, 9);
@@ -1190,6 +1238,8 @@
         }
 
         restoreThemeOnLoad();
+        const preloadedNotFoundIcon = new Image();
+        preloadedNotFoundIcon.src = 'assets/not_found.png';
 
         function hideLoader() {
             const loaderOverlay = document.getElementById('loader-overlay');
@@ -1241,7 +1291,7 @@
         }
 
         function getPosts() {
-            return allPosts;
+            return allPosts.filter(post => (post.section || 'vpj') === currentSection);
         }
 
         function getPopularPosts() {
@@ -1358,14 +1408,15 @@
                  }
             }
 
-            contentContainer.innerHTML = '<h1 style="color: var(--accent-white); font-size: 32px; margin-bottom: 25px;">Лента</h1>';
+            const feedTitle = currentSection === 'vp' ? 'VP' : 'Лента';
+            contentContainer.innerHTML = `<h1 style="color: var(--accent-white); font-size: 32px; margin-bottom: 25px;">${feedTitle}</h1>`;
 
             const posts = filteredPosts;
             const query = searchInput.value ? searchInput.value.trim() : ''; 
 
             if (posts.length === 0) {
                 if (query === '') {
-                    contentContainer.innerHTML += '<p style="color: var(--text-secondary);">Пока что здесь пусто.</p>';
+                    contentContainer.innerHTML += `<p style="color: var(--text-secondary);">${currentSection === 'vp' ? 'В разделе VP пока нет статей.' : 'Пока что здесь пусто.'}</p>`;
                 } else {
                     contentContainer.innerHTML += `
                         <div class="not-found">
@@ -1588,14 +1639,14 @@
             history.replaceState(null, null, 'index.html');
 
             const query = searchInput.value.toLowerCase().trim();
-            const allPosts = getPosts();
+            const sectionPosts = getPosts();
 
             if (query === '') {
-                renderFeed(allPosts); 
+                renderFeed(sectionPosts); 
                 return;
             }
 
-            const filtered = allPosts.filter(post => 
+            const filtered = sectionPosts.filter(post => 
                 post.title.toLowerCase().includes(query) ||
                 (post.intro ? post.intro.toLowerCase().includes(query) : false) ||
                 (post.fullText ? post.fullText.toLowerCase().includes(query) : false) ||
@@ -1622,6 +1673,8 @@
 
         vpjLogo.addEventListener('click', (e) => {
             e.preventDefault();
+            currentSection = 'vpj';
+            updateSectionToggleUI();
             searchInput.value = ''; 
             history.pushState(null, null, 'index.html'); 
             renderFeed(); 
@@ -1784,6 +1837,7 @@
                 date: date,
                 time: time,
                 hub: '',
+                section: document.getElementById('post-section-input').value || 'vpj',
                 isPopular: isPopular
             };
 
@@ -1799,6 +1853,7 @@
 
             postForm.reset();
             postAuthorInput.value = 'VPJ_Author'; 
+            document.getElementById('post-section-input').value = 'vpj';
             createPostModal.style.display = 'none';
         }
 
@@ -1866,6 +1921,7 @@
             document.getElementById('edit-post-intro-input').value = post.intro;
             document.getElementById('edit-post-text-input').value = post.fullText;
             document.getElementById('edit-post-tags-input').value = post.tags;
+            document.getElementById('edit-post-section-input').value = post.section || 'vpj';
             document.getElementById('edit-post-popular-input').checked = post.isPopular;
         }
 
@@ -1888,6 +1944,7 @@
                     intro: document.getElementById('edit-post-intro-input').value,
                     fullText: document.getElementById('edit-post-text-input').value,
                     tags: document.getElementById('edit-post-tags-input').value || 'авторский пост',
+                    section: document.getElementById('edit-post-section-input').value || 'vpj',
                     isPopular: isPopular
                 };
 
@@ -1965,6 +2022,33 @@
             }, Math.random() * 15000 + 5000); // каждые 5-20 секунд
         }
 
+        function updateSectionToggleUI() {
+            if (currentSection === 'vp') {
+                sectionToggleIcon.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M14.7 5.3a1 1 0 0 1 0 1.4L10.41 11H20a1 1 0 1 1 0 2h-9.59l4.3 4.3a1 1 0 0 1-1.42 1.4l-6-6a1 1 0 0 1 0-1.4l6-6a1 1 0 0 1 1.41 0z'/%3E%3C/svg%3E";
+                sectionToggleIcon.alt = 'Назад';
+                sectionToggleBtn.title = 'Вернуться на главную';
+            } else {
+                sectionToggleIcon.src = 'assets/vp-anons.png';
+                sectionToggleIcon.alt = 'VP';
+                sectionToggleBtn.title = 'Перейти в VP';
+            }
+        }
+
+        sectionToggleBtn.addEventListener('click', () => {
+            currentSection = currentSection === 'vpj' ? 'vp' : 'vpj';
+            updateSectionToggleUI();
+            searchInput.value = '';
+            history.pushState(null, null, 'index.html');
+            renderFeed();
+        });
+
+        document.addEventListener('contextmenu', (e) => e.preventDefault());
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key.toUpperCase())) || (e.ctrlKey && e.key.toUpperCase() === 'U')) {
+                e.preventDefault();
+            }
+        });
+
         // Запуск имитации активности при загрузке
         window.addEventListener('load', () => {
             setTimeout(simulateUserActivity, 2000);
@@ -1973,6 +2057,7 @@
         });
 
         window.onload = () => {
+            updateSectionToggleUI();
             handleURLChange(); 
         };
     </script>
